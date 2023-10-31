@@ -1,7 +1,11 @@
 import requests
+import os
+from dotenv import load_dotenv
 
-USERNAME = 'Shopify Customer Data'
-KEY = 'd_0iH1$?X2Deh2t9L?@$@?t-R'
+load_dotenv()
+
+USERNAME = os.environ.get('NAVI_WINGS_USERNAME')
+KEY = os.environ.get('NAVI_WINGS_KEY')
 
 input_data = {'First Name': 'TEST', 'Last Name': 'TEST2', 'Email': 'George.Lazenby@bondenterprises.co', 'Address Line 1': '38 The Drive', 'Town': 'Westbury', 'County': 'England', 'Postal Code': 'SE51 8AJ', 'Country': 'United Kingdom', 'Phone': '07123456789'}
 
