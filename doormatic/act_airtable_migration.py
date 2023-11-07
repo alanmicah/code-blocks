@@ -17,26 +17,38 @@ baseId = "appga9Mr4rk0qIOy5"
 tableIdOrName = "Contacts Table"
 airtable_create_record_url = f"https://api.airtable.com/v0/{baseId}/{tableIdOrName}"
 
-contacts_df = pd.read_csv("assets/contacts-2023.csv", low_memory=False)
 
-# Filter contacts that have been imported
-contacts_df = contacts_df[contacts_df["Imported"] != True]
-contacts_df = contacts_df.fillna("")
+def read_and_clean_csv():
+    contacts_df = pd.read_csv("assets/contacts-2019.csv", low_memory=False)
 
-# replace bools with strings
-mask = contacts_df.applymap(type) != bool
-bool_to_string = {True: "TRUE", False: "FALSE"}
-contacts_df = contacts_df.where(mask, contacts_df.replace(bool_to_string))
+    # Filter contacts that have been imported
+    contacts_df = contacts_df[contacts_df["Imported"] != True]
+    contacts_df[["Business Latitude", "Business Longitude"]] = contacts_df[
+        ["Business Latitude", "Business Longitude"]
+    ].fillna(0)
+    contacts_df = contacts_df.fillna("")
 
-print(contacts_df)
+    # #
+    # contacts_df["Business Latitude"] = (
+    #     contacts_df[["Business Latitude"]]fillna(0)
+    # )
+    # .apply(pd.to_numeric).
+
+    print(contacts_df["Business Latitude"])
+
+    # replace bools with strings
+    mask = contacts_df.applymap(type) != bool
+    bool_to_string = {True: "TRUE", False: "FALSE"}
+    contacts_df = contacts_df.where(mask, contacts_df.replace(bool_to_string))
+
+    return contacts_df
 
 
-def create_request_body(start_index, end_index):
+def create_request_body(start_index, end_index, contacts_df):
     records = []
 
     for i in range(start_index, end_index):
         contact = contacts_df.iloc[i]
-        print(contact["Business Latitude"])
         record = {
             "fields": {
                 "Surname": contact["Surname"],
@@ -69,10 +81,10 @@ def create_request_body(start_index, end_index):
         }
         records.append(record)
 
-    # print(records)
+    print(records)
 
     data = {"records": records}
-    print(json.dumps(data))
+    # print(json.dumps(data))
     return data
 
 
@@ -93,8 +105,10 @@ def update_csv_row(i):
     # print(contact)
 
 
+contacts_df = read_and_clean_csv()
+
 for i in range(0, len(contacts_df), 10):
-    data = create_request_body(0, 3)
+    data = create_request_body(0, 3, contacts_df)
     post_data_to_airtable(data)
     # update_csv_row(i)
     break
