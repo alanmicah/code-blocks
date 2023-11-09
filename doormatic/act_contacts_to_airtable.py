@@ -151,10 +151,6 @@ def post_data_to_airtable(data):
 
 
 dates = [
-    {"year": 2022, "month": 1},
-    {"year": 2021, "month": 12},
-    {"year": 2021, "month": 11},
-    {"year": 2021, "month": 10},
     {"year": 2021, "month": 9},
     {"year": 2021, "month": 8},
     {"year": 2021, "month": 7},

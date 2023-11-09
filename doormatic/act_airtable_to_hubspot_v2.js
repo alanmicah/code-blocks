@@ -21,13 +21,10 @@ const airtableHeaders = { Authorization: `Bearer ${airtableKey}` };
 let airtablePageOffset = null;
 
 async function migrateAirtableContactsToHubspot() {
-  const records = await getContactsfromAirtable();
-  const requestBodies = createRequestBodies(records);
-  const hubspotIDs = await performMultipleBatchContactsCreationInHubspot(
-    requestBodies
-  );
-  console.log(hubspotIDs);
-  // updateAirtableRecord("123124124adf");
+  const airtableRecords = await getContactsfromAirtable();
+  const hubspotID = await addContactsToHubspot(airtableRecords);
+  // console.log(hubspotIDs);
+  updateAirtableRecord(hubspotID);
 }
 
 async function getContactsfromAirtable() {
@@ -40,42 +37,24 @@ async function getContactsfromAirtable() {
   airtablePageOffset = response.data.offset;
 
   return response.data.records;
-
-  // for (record of response.data.records) {
-  //   console.log(record.fields["Create Date"]);
-  // }
 }
 
-function createRequestBodies(airtableRecords) {
-  let recordBundle = [];
-  let requestBodies = [];
-
-  for (let i = 0; i < airtableRecords.length; i++) {
-    airtableRecord = airtableRecords[i];
-    recordBundle.push(airtableRecord);
-
-    if (recordBundle.length == 10 || i == airtableRecords.length - 1) {
-      const requestBody = createRequestBody(recordBundle);
-      requestBodies.push(requestBody);
-      recordBundle = [];
-    }
+async function addContactsToHubspot(airtableRecords) {
+  for (const airtableRecord of airtableRecords) {
+    const requestBody = createRequestBody(airtableRecord);
+    const hubspotID = addContactToHubspot(requestBody);
+    // updateAirtableRecord(hubspotID);
+    break;
   }
 
-  console.log(requestBodies);
-  return requestBodies;
+  console.log(123);
 }
 
-function createRequestBody(airtableRecords) {
+function createRequestBody(airtableRecord) {
   requestBody = {
-    inputs: airtableRecords.map((airtableRecord) => {
-      return {
-        properties: createProperties(airtableRecord.fields),
-        associations: [],
-      };
-    }),
+    properties: createProperties(airtableRecord.fields),
   };
 
-  console.log(requestBody.inputs[0]);
   return requestBody;
 }
 
@@ -110,23 +89,14 @@ function createProperties(contactFields) {
   return properties;
 }
 
-function performMultipleBatchContactsCreationInHubspot(requestBodies) {
-  for (const requestBody of requestBodies) {
-    console.log(requestBody);
-    batchCreateContactsInHubspot(requestBody);
-    break;
-  }
-}
-
-async function batchCreateContactsInHubspot(requestBody) {
+async function addContactToHubspot(requestBody) {
   try {
     const apiResponse = await axios.post(
-      "https://api.hubapi.com/crm/v3/objects/contacts/batch/create",
+      "https://api.hubapi.com/crm/v3/objects/contacts",
       requestBody,
       { headers: hubspotHeaders }
     );
-
-    return apiResponse;
+    return apiResponse.data.id;
   } catch (e) {
     e.message === "HTTP request failed"
       ? console.error(JSON.stringify(e.response, null, 2))
