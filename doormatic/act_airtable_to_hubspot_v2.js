@@ -22,9 +22,7 @@ let airtablePageOffset = null;
 
 async function migrateAirtableContactsToHubspot() {
   const airtableRecords = await getContactsfromAirtable();
-  const hubspotID = await addContactsToHubspot(airtableRecords);
-  // console.log(hubspotIDs);
-  updateAirtableRecord(hubspotID);
+  addContactsToHubspot(airtableRecords);
 }
 
 async function getContactsfromAirtable() {
@@ -42,12 +40,12 @@ async function getContactsfromAirtable() {
 async function addContactsToHubspot(airtableRecords) {
   for (const airtableRecord of airtableRecords) {
     const requestBody = createRequestBody(airtableRecord);
+    console.log(requestBody);
     const hubspotID = addContactToHubspot(requestBody);
-    // updateAirtableRecord(hubspotID);
+
+    updateAirtableRecord(hubspotID, airtableRecord.id);
     break;
   }
-
-  console.log(123);
 }
 
 function createRequestBody(airtableRecord) {
@@ -65,6 +63,8 @@ function createProperties(contactFields) {
   createdDate.setHours(0, 0, 0, 0);
 
   let properties = {
+    hubspot_owner_id: "",
+
     act_contact_id: contactFields["Act ID"],
     address_line_1: contactFields["Address 1"],
     address_line_2: contactFields["Address 2"],
@@ -99,49 +99,100 @@ async function addContactToHubspot(requestBody) {
     return apiResponse.data.id;
   } catch (e) {
     e.message === "HTTP request failed"
-      ? console.error(JSON.stringify(e.response, null, 2))
-      : console.error(e);
+      ? console.error(JSON.stringify(e.response.data, null, 2))
+      : console.error(e.response.data);
+
+    console.log("Hubspot error");
   }
 }
 
-async function updateAirtableRecord(hubspotID) {
-  const airtableputRecordUrl = `https://api.airtable.com/v0/${baseId}/${tableIdOrName}`;
+async function updateAirtableRecord(hubspotID, airtableID) {
+  if (hubspotID == null) return;
 
-  response = await axios.patch(
-    airtableputRecordUrl,
-    {
-      records: [
-        {
-          fields: {
-            "Hubspot ID": hubspotID,
-          },
-          id: "recDB5vvDLgmpGR25",
+  const airtableputRecordUrl = `https://api.airtable.com/v0/${baseId}/${tableIdOrName}/${airtableID}`;
+  try {
+    response = await axios.patch(
+      airtableputRecordUrl,
+      {
+        fields: {
+          "Hubspot ID": hubspotID,
         },
-        {
-          fields: {
-            "Hubspot ID": hubspotID,
-          },
-          id: "rece4ODOKmJYz0SGG",
-        },
-      ],
-    },
+      },
 
-    {
-      headers: airtableHeaders,
-    }
-  );
-
-  // console.log(response.data.records);
-  for (const record of response.data.records) {
-    // console.log(record);
-    console.log(
-      record.fields["First Name"],
-      record.fields["Surname"],
-      hubspotID
+      {
+        headers: airtableHeaders,
+      }
     );
-  }
 
-  return response.data;
+    // console.log(response.data.records);
+    for (const record of response.data.records) {
+      console.log(
+        record.fields["First Name"],
+        record.fields["Surname"],
+        hubspotID
+      );
+    }
+
+    return response.data;
+  } catch (error) {
+    console.log(error.data);
+  }
 }
 
-migrateAirtableContactsToHubspot();
+// migrateAirtableContactsToHubspot();
+
+const users = [
+  {
+    userId: 60798159,
+    fullName: "Edward Wallace",
+  },
+  {
+    userId: 61212098,
+    fullName: "Marc Sebo",
+  },
+  {
+    userId: 11284284,
+    fullName: "Emma Ablewhite",
+  },
+  {
+    userId: 61516769,
+    fullName: "Doormatic Bot",
+  },
+  {
+    userId: 61589826,
+    fullName: "Ollie Bishop",
+  },
+  {
+    userId: 61589836,
+    fullName: "Joe Oakley",
+  },
+  {
+    userId: 61589856,
+    fullName: "Steve Dearnaley",
+  },
+  {
+    userId: 61589818,
+    fullName: "Chris Power",
+  },
+  {
+    userId: 61589849,
+    fullName: "Justine Wyatt",
+  },
+  {
+    userId: 61589860,
+    fullName: "James Gourlay",
+  },
+  {
+    userId: 61589865,
+    fullName: "Chris Smith",
+  },
+  {
+    userId: 61589868,
+    fullName: "Paul Hollylee",
+  },
+];
+
+let contactOwner = users.filter((user) => user.fullName == "Marc Sebo")[0];
+let contactOwnerID = contactOwner == null ? 61516769 : contactOwner.userId;
+
+console.log(contactOwnerID);
