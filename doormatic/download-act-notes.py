@@ -21,7 +21,7 @@ data_store_filename = "data_store.json"
 contacts_filename = "contacts.csv"
 notes_filename = "notes.csv"
 
-max_number_of_contacts = 1
+max_number_of_contacts = 10
 
 contact_id_column = 1  # Zero indexed
 
