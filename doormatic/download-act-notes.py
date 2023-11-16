@@ -7,6 +7,7 @@ import act_crm
 import csv
 
 import airtable
+import utilities
 
 print()
 print()
@@ -27,14 +28,13 @@ contact_id_column = 1  # Zero indexed
 ###################### ACT DETAILS ######################
 
 act_bearer_token = os.environ.get("DOORMATIC_ACT_BEARER_KEY")
-# act_crm.bearer_token = act_bearer_token  # Set token in act_crm
-act_crm.auth_headers["Authorization"] = f"Bearer {act_bearer_token}"
+act_crm.auth_headers["Authorization"] = f"Bearer {act_bearer_token}"  # Set token in act_crm
 print(f'Act! TKN loaded')
 
 ###################### AIRTABLE DETAILS ######################
 
 airtable_key = os.environ.get("DOORMATIC_AIRTABLE_PAT")
-airtable.api_token = airtable_key
+airtable.headers["Authorization"] = f"Bearer {airtable_key}"  # Set token in airtable
 print(f'AT TKN loaded')
 baseId = "appWegstR7Zgo3Izd"
 tableIdOrName = "Notes"
@@ -129,12 +129,12 @@ def add_notes_to_airtable(mapped_notes):
         records.append(note)
         if (index + 1) % 10 == 0 or index + 1 == len(mapped_notes):
             # Batch upload every ten records
-            airtable.create_multiple_records(baseId, tableIdOrName, records)
-            print()
+            airtable_response = airtable.create_multiple_records(baseId, tableIdOrName, records)
+            print(f'Airtable Response: {airtable_response}')
 
             for record in records:
                 print(
-                    record["fields"]["Act Note ID"],
+                    f'Note: {record["fields"]["Act Note ID"]}'
                 )
             # Re-initialise the records list
             records = []
@@ -167,8 +167,8 @@ def create_record_object(note):
             "Act Company ID": note_company,
             "Act Opportunity ID": note_opportunity,
             "Note Text": note["noteText"],
-            "Note Type ID": note["noteTypeID"],
-            "Private Note": note["isPrivate"],
+            "Note Type ID": str(note["noteTypeID"]),
+            "Private Note": str(note["isPrivate"]),
             "Create Date": note["created"],
             "Edit Date": note["edited"]
         }
@@ -181,42 +181,55 @@ def main():
     # Initialise array of notes
     all_notes = []
     all_mapped_notes = []
-    processed_contacts = []
+    mapped_notes_for_csv = []
+    new_processed_contacts = []
+    # Initialise data store json file
+    data_store_filepath = f'{data_directory}{data_store_filename}'
+    data_store = utilities.retrieve_dict(data_store_filepath)
+    processed_contacts = data_store.get('processed_contact_ids')
+    if not processed_contacts:
+        processed_contacts = []
     # Get contacts from csv
-    all_contacts = import_csv_file(f'{data_directory}{contacts_filename}')
+    all_contacts = utilities.import_csv_file(f'{data_directory}{contacts_filename}')
 
     # Iterate N contacts and retrieve notes associated with each contact id
-    for contact_counter, contact in enumerate(all_contacts):
-        if contact_counter > 0:  # Skip header
+    contact_counter = 0
+    for row_num, contact in enumerate(all_contacts):
+        if row_num > 0:  # Skip header
             if contact_counter < max_number_of_contacts + 1:
                 contact_id = contact[contact_id_column]
-                contact_notes = act_crm.get_act_notes('contacts', contact_id)
-                print(f'Contact notes: {json.dumps(contact_notes)}')
-                # Append notes to list of all_notes
-                all_notes = all_notes + contact_notes
-                # Append contact_id to processed_contacts
-                processed_contacts.append(contact_id)
+                if contact_id not in processed_contacts:
+                    contact_notes = act_crm.get_act_notes('contacts', contact_id)
+                    print(f'Contact notes: {json.dumps(contact_notes)}')
+                    # Append notes to list of all_notes
+                    all_notes = all_notes + contact_notes
+                    # Append contact_id to processed_contacts
+                    new_processed_contacts.append(contact_id)
+                    contact_counter += 1
+
+                    if contact_counter == max_number_of_contacts:
+                        break
 
     # Map Notes data into Airtable structure
     for note in all_notes:
         mapped_note = create_record_object(note)
         all_mapped_notes.append(mapped_note)
+        mapped_notes_for_csv.append(mapped_note.get('fields'))
 
     # Upload notes to Airtable
     add_notes_to_airtable(all_mapped_notes)
+    # Save notes in csv
+    utilities.write_to_csv(f'{data_directory}{notes_filename}', mapped_notes_for_csv)
 
     # Save Notes and processed contact ids data into json file
-    data_store_filepath = f'{data_directory}{data_store_filename}'
-    data_store = retrieve_dict(data_store_filepath)
     existing_notes = data_store.get('note_records')
-    existing_processed_contacts = data_store.get('processed_contact_ids')
     if not existing_notes:
         existing_notes = []
-    if not existing_processed_contacts:
-        existing_processed_contacts = []
+    if not processed_contacts:
+        processed_contacts = []
     data_store['note_records'] = existing_notes + all_mapped_notes
-    data_store['processed_contact_ids'] = existing_processed_contacts + processed_contacts
-    store_dict(data_store, data_store_filepath)
+    data_store['processed_contact_ids'] = processed_contacts + new_processed_contacts
+    utilities.store_dict(data_store, data_store_filepath)
 
 
 main()
