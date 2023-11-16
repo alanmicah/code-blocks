@@ -1,8 +1,6 @@
 /////////////////////// IMPORTS ///////////////////////
 
-const hubspot = require("@hubspot/api-client");
 const axios = require("axios");
-const { log } = require("console");
 require("dotenv").config();
 /////////////////////// HUBSPOT DETAILS ///////////////////////
 
@@ -21,13 +19,14 @@ const airtableHeaders = { Authorization: `Bearer ${airtableKey}` };
 let airtablePageOffset = null;
 
 async function migrateAirtableContactsToHubspot() {
-  const airtableRecords = await getContactsfromAirtable();
-  addContactsToHubspot(airtableRecords);
+  for (let i = 0; i < 1000; i++) {
+    const airtableRecords = await getContactsfromAirtable();
+    await addContactsToHubspot(airtableRecords);
+  }
 }
 
 async function getContactsfromAirtable() {
-  const airtablegetRecordsUrl = `https://api.airtable.com/v0/${baseId}/${tableIdOrName}?sort%5B0%5D%5Bfield%5D=Create%20Date`;
-  console.log(airtablegetRecordsUrl);
+  const airtablegetRecordsUrl = `https://api.airtable.com/v0/${baseId}/${tableIdOrName}?view=Contacts%20To%20Upload`;
 
   response = await axios.get(airtablegetRecordsUrl, {
     headers: airtableHeaders,
@@ -40,11 +39,12 @@ async function getContactsfromAirtable() {
 async function addContactsToHubspot(airtableRecords) {
   for (const airtableRecord of airtableRecords) {
     const requestBody = createRequestBody(airtableRecord);
-    console.log(requestBody);
-    const hubspotID = addContactToHubspot(requestBody);
+    // console.log(requestBody);
 
-    updateAirtableRecord(hubspotID, airtableRecord.id);
-    break;
+    // await hubspotUsers();
+    const hubspotID = await addContactToHubspot(requestBody);
+
+    await updateAirtableRecord(hubspotID, airtableRecord.id);
   }
 }
 
@@ -57,14 +57,11 @@ function createRequestBody(airtableRecord) {
 }
 
 function createProperties(contactFields) {
-  const createdDate = new Date(
-    Date.parse(contactFields["Create Date (Parsed)"])
-  );
-  createdDate.setHours(0, 0, 0, 0);
+  const createdDate = setDateToMidnight(contactFields["Create Date (Parsed)"]);
 
+  const ownerID = getRecordManagerHubspotID(contactFields["Record Manager"]);
   let properties = {
-    hubspot_owner_id: "",
-
+    hubspot_owner_id: ownerID,
     act_contact_id: contactFields["Act ID"],
     address_line_1: contactFields["Address 1"],
     address_line_2: contactFields["Address 2"],
@@ -89,6 +86,71 @@ function createProperties(contactFields) {
   return properties;
 }
 
+function setDateToMidnight(date) {
+  const createdDate = new Date(Date.parse(date.split("T")[0]));
+
+  return createdDate;
+  // createdDate.setHours(0, 0, 0, 0);
+}
+
+function getRecordManagerHubspotID(managerName) {
+  const users = [
+    {
+      userId: 1361913057,
+      fullName: "Edward Wallace",
+    },
+    {
+      userId: 1424333045,
+      fullName: "Mr Marc Sebo",
+    },
+    {
+      userId: 1471807445,
+      fullName: "Emma Ablewhite",
+    },
+    {
+      userId: 1475309010,
+      fullName: "Doormatic Bot",
+    },
+    {
+      userId: 1486492370,
+      fullName: "Ollie Bishop",
+    },
+    {
+      userId: 1486492616,
+      fullName: "Joe Oakley",
+    },
+    {
+      userId: 1486492867,
+      fullName: "Steve Dearnaley",
+    },
+    {
+      userId: 1486506218,
+      fullName: "Chris Power",
+    },
+    {
+      userId: 1486506976,
+      fullName: "Justine Wyatt",
+    },
+    {
+      userId: 1486506989,
+      fullName: "James Gourlay",
+    },
+    {
+      userId: 1486506997,
+      fullName: "Chris Smith",
+    },
+    {
+      userId: 1486507239,
+      fullName: "Paul Hollylee",
+    },
+  ];
+
+  let contactOwner = users.filter((user) => user.fullName == managerName)[0];
+  let contactOwnerID = contactOwner == null ? 1475309010 : contactOwner.userId;
+
+  return contactOwnerID;
+}
+
 async function addContactToHubspot(requestBody) {
   try {
     const apiResponse = await axios.post(
@@ -98,24 +160,39 @@ async function addContactToHubspot(requestBody) {
     );
     return apiResponse.data.id;
   } catch (e) {
-    e.message === "HTTP request failed"
+    e.message === "Request failed with status code 409"
       ? console.error(JSON.stringify(e.response.data, null, 2))
-      : console.error(e.response.data);
-
-    console.log("Hubspot error");
+      : console.error("error");
   }
 }
 
-async function updateAirtableRecord(hubspotID, airtableID) {
-  if (hubspotID == null) return;
+// async function hubspotUsers() {
+//   try {
+//     const apiResponse = await axios.get(
+//       "https://api.hubapi.com/crm/v3/owners/?limit=100&archived=false",
+//       { headers: hubspotHeaders }
+//     );
 
+//     console.log(apiResponse.data);
+//     return apiResponse.data;
+
+//   } catch (e) {
+//     e.message === "HTTP request failed"
+//       ? console.error(JSON.stringify(e.response.data, null, 2))
+//       : console.error(e.response.data);
+
+//     console.log("Hubspot error");
+//   }
+// }
+
+async function updateAirtableRecord(hubspotID, airtableID) {
   const airtableputRecordUrl = `https://api.airtable.com/v0/${baseId}/${tableIdOrName}/${airtableID}`;
   try {
     response = await axios.patch(
       airtableputRecordUrl,
       {
         fields: {
-          "Hubspot ID": hubspotID,
+          "Hubspot ID": hubspotID == null ? "NA" : hubspotID,
         },
       },
 
@@ -125,74 +202,16 @@ async function updateAirtableRecord(hubspotID, airtableID) {
     );
 
     // console.log(response.data.records);
-    for (const record of response.data.records) {
-      console.log(
-        record.fields["First Name"],
-        record.fields["Surname"],
-        hubspotID
-      );
-    }
+    console.log(
+      response.data.fields["First Name"],
+      response.data.fields["Surname"],
+      hubspotID == null ? "NA" : hubspotID
+    );
 
     return response.data;
   } catch (error) {
-    console.log(error.data);
+    console.log("Airtable Error");
   }
 }
 
-// migrateAirtableContactsToHubspot();
-
-const users = [
-  {
-    userId: 60798159,
-    fullName: "Edward Wallace",
-  },
-  {
-    userId: 61212098,
-    fullName: "Marc Sebo",
-  },
-  {
-    userId: 11284284,
-    fullName: "Emma Ablewhite",
-  },
-  {
-    userId: 61516769,
-    fullName: "Doormatic Bot",
-  },
-  {
-    userId: 61589826,
-    fullName: "Ollie Bishop",
-  },
-  {
-    userId: 61589836,
-    fullName: "Joe Oakley",
-  },
-  {
-    userId: 61589856,
-    fullName: "Steve Dearnaley",
-  },
-  {
-    userId: 61589818,
-    fullName: "Chris Power",
-  },
-  {
-    userId: 61589849,
-    fullName: "Justine Wyatt",
-  },
-  {
-    userId: 61589860,
-    fullName: "James Gourlay",
-  },
-  {
-    userId: 61589865,
-    fullName: "Chris Smith",
-  },
-  {
-    userId: 61589868,
-    fullName: "Paul Hollylee",
-  },
-];
-
-let contactOwner = users.filter((user) => user.fullName == "Marc Sebo")[0];
-let contactOwnerID = contactOwner == null ? 61516769 : contactOwner.userId;
-
-console.log(contactOwnerID);
+migrateAirtableContactsToHubspot();
