@@ -1,0 +1,35 @@
+{
+  "note_records": [
+    {
+      "fields": {
+        "Act Note ID": "92158f77-f6bc-407c-987d-294f154eb642",
+        "Act Contact ID": "eb1bbdce-3261-48df-9d62-30c388ce8476",
+        "Act Creator ID": "757b740a-55de-4797-977b-5d468c3995b3",
+        "Act Company ID": null,
+        "Act Opportunity ID": null,
+        "Note Text": "<span style=\"font-family:Arial; font-size: 13px;\">Hi Julie,<br />\n<br />\nThank you for your enquiry.<br />\n<br />\nAs all of our front doors and bespoke made,\nplease use the following link to Endurance doors &amp; Spitfire.<br />\n<br />\nPlease let me know the size of the brick to brick height and width\nmeasurements.<br />\n<br />\nEndurance doors are Composite material<br />\n<br />\nEndurance : Retail Door Designer\n(bmapprocaldoorportalretail.azurewebsites.net)<br />\n<br />\nSpitfire are aluminium material.<br />\n<br />\nhttps://www.spitfiredoors.co.uk/<br />\n<br />\nOnce you have finalised your design, please send a screenshot back to me via\nthis email. (pressing request quote will not work properly)<br />\n<br />\nI will then be able to send through your quotation.<br />\n<br />\nkind regards<br />\n<br />\nChris</span>",
+        "Note Type ID": 100,
+        "Private Note": false,
+        "Create Date": "2023-11-06T12:01:08+00:00",
+        "Edit Date": "2023-11-06T12:01:08+00:00"
+      }
+    },
+    {
+      "fields": {
+        "Act Note ID": "c573ccba-ba9a-4713-a658-c4f8ec2411a5",
+        "Act Contact ID": "eb1bbdce-3261-48df-9d62-30c388ce8476",
+        "Act Creator ID": "1a06ff72-db7e-4de1-a560-3ec8bd4476ff",
+        "Act Company ID": null,
+        "Act Opportunity ID": null,
+        "Note Text": "<span style=\"font-family:Arial; font-size: 13px;\">Enduarence links sent.</span>",
+        "Note Type ID": 100,
+        "Private Note": false,
+        "Create Date": "2023-11-09T14:31:55+00:00",
+        "Edit Date": "2023-11-09T14:31:55+00:00"
+      }
+    }
+  ],
+  "processed_contact_ids": [
+    "eb1bbdce-3261-48df-9d62-30c388ce8476"
+  ]
+}
