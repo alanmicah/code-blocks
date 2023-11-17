@@ -21,7 +21,7 @@ data_store_filename = "data_store.json"
 contacts_filename = "contacts.csv"
 notes_filename = "notes.csv"
 
-max_number_of_contacts = 10
+max_number_of_contacts = 1000
 
 contact_id_column = 1  # Zero indexed
 
@@ -130,7 +130,7 @@ def add_notes_to_airtable(mapped_notes):
         if (index + 1) % 10 == 0 or index + 1 == len(mapped_notes):
             # Batch upload every ten records
             airtable_response = airtable.create_multiple_records(baseId, tableIdOrName, records)
-            print(f'Airtable Response: {airtable_response}')
+            print(f'>> Batch Uploaded to Airtable\n\n')
 
             for record in records:
                 print(
@@ -138,8 +138,6 @@ def add_notes_to_airtable(mapped_notes):
                 )
             # Re-initialise the records list
             records = []
-
-            print()
 
 
 def create_record_object(note):
@@ -232,4 +230,9 @@ def main():
     utilities.store_dict(data_store, data_store_filepath)
 
 
+start_time = time.time()
+print(headline(f'Process start', '=', 100))
 main()
+end_time = time.time()
+time_delta = int((end_time - start_time) * 1000) / 1000
+print(headline(f'Process end ({time_delta} s)', '=', 100))
