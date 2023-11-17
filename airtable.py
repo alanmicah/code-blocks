@@ -151,7 +151,10 @@ def get_record(base_id, table_id, record_id):
 
 
 def search_for_record(base_id, table_id, view_name, formula, max_results):
-    """Search the specified table using the formula.  Formula is a string.  view_name is optional (pass None to ignore)"""
+    """
+    Search the specified table using the formula.  Formula is a string.  view_name is optional
+    (pass None to ignore)
+    """
     # Set up request objects
     endpoint = f'{endpoint_root}/{base_id}/{table_id}/listRecords'
 

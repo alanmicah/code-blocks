@@ -24,6 +24,7 @@ notes_filename = "notes.csv"
 max_number_of_contacts = 1000
 
 contact_id_column = 1  # Zero indexed
+total_contacts_processed = 0  # For console logging
 
 ###################### ACT DETAILS ######################
 
@@ -227,6 +228,10 @@ def main():
         processed_contacts = []
     data_store['note_records'] = existing_notes + all_mapped_notes
     data_store['processed_contact_ids'] = processed_contacts + new_processed_contacts
+    try:
+        print(headline(f"{len(data_store['processed_contact_ids'])} contacts processed", '=', 100))
+    except:
+        ''
     utilities.store_dict(data_store, data_store_filepath)
 
 
@@ -236,3 +241,4 @@ main()
 end_time = time.time()
 time_delta = int((end_time - start_time) * 1000) / 1000
 print(headline(f'Process end ({time_delta} s)', '=', 100))
+

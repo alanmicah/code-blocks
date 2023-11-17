@@ -19,7 +19,6 @@ auth_headers = {
 def get_up_to_date_authorisation():
     endpoint = f"{api_base_url}/authorize"
     response = requests.get(endpoint, headers=auth_headers)
-
     temporary_bearer_token = response.text
     headers = {
       "Act-Database-Name": "Doormatic",
