@@ -1,6 +1,6 @@
 import requests
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import json
 import time
 import act_crm
@@ -12,7 +12,8 @@ import utilities
 print()
 print()
 print()
-load_dotenv()
+# load_dotenv()
+auth = utilities.retrieve_dict('.env2')
 
 ###################### GLOBALS ######################
 main_directory = "doormatic/"
@@ -21,7 +22,7 @@ data_store_filename = "data_store.json"
 contacts_filename = "contacts.csv"
 notes_filename = "notes.csv"
 
-max_number_of_contacts = 1000
+max_number_of_contacts = 5000
 
 contact_id_column = 1  # Zero indexed
 total_contacts_processed = 0  # For console logging
@@ -29,12 +30,14 @@ total_contacts_processed = 0  # For console logging
 ###################### ACT DETAILS ######################
 
 act_bearer_token = os.environ.get("DOORMATIC_ACT_BEARER_KEY")
+act_bearer_token = auth.get("DOORMATIC_ACT_BEARER_KEY")
 act_crm.auth_headers["Authorization"] = f"Bearer {act_bearer_token}"  # Set token in act_crm
 print(f'Act! TKN loaded')
 
 ###################### AIRTABLE DETAILS ######################
 
 airtable_key = os.environ.get("DOORMATIC_AIRTABLE_PAT")
+act_bearer_token = auth.get("DOORMATIC_AIRTABLE_PAT")
 airtable.headers["Authorization"] = f"Bearer {airtable_key}"  # Set token in airtable
 print(f'AT TKN loaded')
 baseId = "appWegstR7Zgo3Izd"
@@ -200,10 +203,13 @@ def main():
                 if contact_id not in processed_contacts:
                     contact_notes = act_crm.get_act_notes('contacts', contact_id)
                     print(f'Contact notes: {json.dumps(contact_notes)}')
-                    # Append notes to list of all_notes
-                    all_notes = all_notes + contact_notes
-                    # Append contact_id to processed_contacts
-                    new_processed_contacts.append(contact_id)
+                    try:
+                        # Append notes to list of all_notes
+                        all_notes = all_notes + contact_notes
+                        # Append contact_id to processed_contacts
+                        new_processed_contacts.append(contact_id)
+                    except TypeError:
+                        print(headline(f'ERROR with ID : {contact_id}', '*', 100))
                     contact_counter += 1
 
                     if contact_counter == max_number_of_contacts:
