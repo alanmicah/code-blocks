@@ -132,9 +132,12 @@ def add_notes_to_airtable(mapped_notes):
     for index, note in enumerate(mapped_notes):
         records.append(note)
         if (index + 1) % 10 == 0 or index + 1 == len(mapped_notes):
-            # Batch upload every ten records
-            airtable_response = airtable.create_multiple_records(baseId, tableIdOrName, records)
-            print(f'>> Batch Uploaded to Airtable\n\n')
+            try:
+                # Batch upload every ten records
+                airtable_response = airtable.create_multiple_records(baseId, tableIdOrName, records)
+                print(utilities.headline(f'Batch Uploaded to Airtable', '>', 100) + '\n\n')
+            except:
+                print(utilities.headline(f'Error When Uploading to Airtable', '<', 100) + '\n\n')
 
             for record in records:
                 print(
