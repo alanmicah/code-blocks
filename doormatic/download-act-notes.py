@@ -1,11 +1,11 @@
-import requests
-import os
+
+import csv
 # from dotenv import load_dotenv
 import json
+import os
 import time
-import act_crm
-import csv
 
+import act_crm
 import airtable
 import utilities
 
@@ -15,32 +15,34 @@ print()
 # load_dotenv()
 auth = utilities.retrieve_dict('.env2')
 
-###################### GLOBALS ######################
+# ================================== SWITCHES ================================== #
+object_type = "contacts"
+max_number_of_objects = 10
+
+# =================================== GLOBALS =================================== #
 main_directory = "doormatic/"
 data_directory = "data/"
 data_store_filename = "data_store.json"
 processed_contacts_store_filename = "processed_contacts.json"
-processed_objects_store_filename = "processed_<OBJECT_TYPE>.json"
 contact_note_records_store_filename = "contacts_note_records.json"
-object_note_records_store_filename = "<OBJECT_TYPE>_note_records.json"
+processed_object_ids_filename = "processed_ids_<OBJECT_TYPE>.json"
+object_note_records_filename = "note_records_<OBJECT_TYPE>.json"
 
 objects_csv_filename = "<OBJECT_TYPE>.csv"
 contacts_filename = "contacts.csv"
 notes_filename = "notes.csv"
 
-max_number_of_contacts = 5000
+object_id_column = 1  # Zero indexed
+total_objects_processed = 0  # For console logging
 
-contact_id_column = 1  # Zero indexed
-total_contacts_processed = 0  # For console logging
-
-###################### ACT DETAILS ######################
+# ================================= ACT DETAILS ================================= #
 
 act_bearer_token = os.environ.get("DOORMATIC_ACT_BEARER_KEY")
 act_bearer_token = auth.get("DOORMATIC_ACT_BEARER_KEY")
 act_crm.auth_headers["Authorization"] = f"Bearer {act_bearer_token}"  # Set token in act_crm
 print(f'Act! TKN loaded')
 
-###################### AIRTABLE DETAILS ######################
+# ============================== AIRTABLE DETAILS ============================== #
 
 airtable_key = os.environ.get("DOORMATIC_AIRTABLE_PAT")
 act_bearer_token = auth.get("DOORMATIC_AIRTABLE_PAT")
@@ -50,7 +52,7 @@ baseId = "appWegstR7Zgo3Izd"
 tableIdOrName = "Notes"
 
 
-###################### SCRIPT ######################
+# =================================== SCRIPT =================================== #
 
 
 def import_csv_file(csv_file_path):
@@ -188,44 +190,51 @@ def create_record_object(note):
     return record
 
 
-def download_notes(object_type):
+def download_notes():
     # Initialise array of notes
     all_notes = []
     all_mapped_notes = []
     mapped_notes_for_csv = []
-    new_processed_objects = []
+    new_processed_object_ids = []
+    errored_object_ids = []
     # Initialise data store json files
     # data_store_filepath = f'{data_directory}{data_store_filename}'
     # data_store = utilities.retrieve_dict(data_store_filepath)
     # processed_contacts = data_store.get('processed_contact_ids')
-    processed_contacts_store = utilities.retrieve_dict(f'{data_directory}{processed_contacts_store_filename}')
-    processed_contacts = processed_contacts_store.get('processed_contact_ids')
-    existing_notes_store = utilities.retrieve_dict(f'{data_directory}{contact_note_records_store_filename}')
-    # print(f'Existing notes:\n{existing_notes_store}')
-    if not processed_contacts:
-        processed_contacts = []
-    # Get contacts from csv
-    all_contacts = utilities.import_csv_file(f'{data_directory}{contacts_filename}')
 
-    # Iterate N contacts and retrieve notes associated with each contact id
-    contact_counter = 0
-    for row_num, contact in enumerate(all_contacts):
+    processed_object_ids_store = utilities.retrieve_dict(f'{data_directory}{processed_object_ids_filename}'
+                                                         .replace('<OBJECT_TYPE>', object_type))
+    processed_ids = processed_object_ids_store.get('data')
+    print(headline(f"{len(processed_ids)} {object_type} processed", '=', 100))
+    existing_notes_store = utilities.retrieve_dict(f'{data_directory}{object_note_records_filename}'
+                                                   .replace('<OBJECT_TYPE>', object_type))
+    # print(f'Existing notes:\n{existing_notes_store}')
+    if not processed_ids:
+        processed_ids = []
+    # Get objects from csv
+    all_objects = utilities.import_csv_file(f'{data_directory}{objects_csv_filename}'
+                                             .replace('<OBJECT_TYPE>', object_type))
+
+    # Iterate N objects and retrieve notes associated with each object id
+    object_counter = 0
+    for row_num, object_data in enumerate(all_objects):
         if row_num > 0:  # Skip header
-            if contact_counter < max_number_of_contacts + 1:
-                contact_id = contact[contact_id_column]
-                if contact_id not in processed_contacts:
-                    contact_notes = act_crm.get_act_notes('contacts', contact_id)
-                    print(f'Contact notes: {json.dumps(contact_notes)}')
+            if object_counter < max_number_of_objects + 1:
+                object_id = object_data[object_id_column]
+                if object_id not in processed_ids:
+                    object_notes = act_crm.get_act_notes(object_type, object_id)
+                    print(f'{object_type} notes: {json.dumps(object_notes)}')
                     try:
                         # Append notes to list of all_notes
-                        all_notes = all_notes + contact_notes
+                        all_notes = all_notes + object_notes
                         # Append contact_id to processed_contacts
-                        new_processed_objects.append(contact_id)
+                        new_processed_object_ids.append(object_id)
                     except TypeError:
-                        print(headline(f'ERROR with ID : {contact_id}', '*', 100))
-                    contact_counter += 1
+                        print(headline(f'ERROR with ID : {object_id}', '*', 100))
+                        errored_object_ids.append(object_id)
+                    object_counter += 1
 
-                    if contact_counter == max_number_of_contacts:
+                    if object_counter == max_number_of_objects:
                         break
 
     # Map Notes data into Airtable structure
@@ -238,31 +247,50 @@ def download_notes(object_type):
     add_notes_to_airtable(all_mapped_notes)
     # Save notes in csv
     if len(mapped_notes_for_csv) > 0:
-        utilities.write_to_csv(f'{data_directory}{notes_filename}', mapped_notes_for_csv)
+        utilities.write_to_csv(f'{data_directory}{notes_filename}'
+                               .replace('<OBJECT_TYPE>', object_type), mapped_notes_for_csv)
 
     # Save Notes and processed contact ids data into json file
     # existing_notes = data_store.get('note_records')
-    existing_notes = existing_notes_store.get('note_records')
+    existing_notes = existing_notes_store.get('data')
     if not existing_notes:
         existing_notes = []
-    if not processed_contacts:
-        processed_contacts = []
+    if not processed_ids:
+        processed_ids = []
     # data_store['note_records'] = existing_notes + all_mapped_notes
     # data_store['processed_contact_ids'] = processed_contacts + new_processed_contacts
-    existing_notes_store['note_records'] = existing_notes + all_mapped_notes
-    processed_contacts_store['processed_contact_ids'] = processed_contacts + new_processed_objects
+    existing_notes_store['data'] = existing_notes + all_mapped_notes
+    processed_object_ids_store['data'] = processed_ids + new_processed_object_ids
     try:
         # print(headline(f"{len(data_store['processed_contact_ids'])} contacts processed", '=', 100))
-        print(headline(f"{len(processed_contacts_store['processed_contact_ids'])} contacts processed", '=', 100))
+        print(headline(f"{len(processed_object_ids_store['data'])} {object_type} processed", '=', 100))
+        print(headline(f"{len(errored_object_ids)} {object_type} with errors", '=', 100))
     except:
         ''
-    utilities.store_dict(processed_contacts_store, f'{data_directory}{processed_contacts_store_filename}')
-    utilities.store_dict(existing_notes_store, f'{data_directory}{contact_note_records_store_filename}')
+    utilities.store_dict(processed_object_ids_store, f'{data_directory}{processed_object_ids_filename}'
+                         .replace('<OBJECT_TYPE>', object_type))
+    utilities.store_dict(existing_notes_store, f'{data_directory}{object_note_records_filename}'
+                         .replace('<OBJECT_TYPE>', object_type))
+
+
+def admin():
+    notes_store = utilities.retrieve_dict(f'{data_directory}{object_note_records_filename}'
+                                          .replace('<OBJECT_TYPE>', 'contacts'))
+    old_key = 'note_records'
+    new_key = 'data'
+    data = notes_store.get(old_key)
+    notes_store[new_key] = data
+    print(notes_store.keys())
+    notes_store.pop(old_key)
+    print(notes_store.keys())
+    utilities.store_dict(notes_store, f'{data_directory}{object_note_records_filename}'
+                         .replace('<OBJECT_TYPE>', 'contacts'))
 
 
 start_time = time.time()
 print(headline(f'Process start', '=', 100))
-download_notes("contacts")
+download_notes()
+# admin()
 end_time = time.time()
 time_delta = int((end_time - start_time) * 1000) / 1000
 print(headline(f'Process end ({time_delta} s)', '=', 100))
