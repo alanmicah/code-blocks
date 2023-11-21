@@ -3,4 +3,5 @@
 assets/*
 node_modules
 doormatic/data/notes.csv
+doormatic/data/opportunities.csv
 doormatic/data/data_store.json
