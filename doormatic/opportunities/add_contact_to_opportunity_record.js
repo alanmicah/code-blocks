@@ -15,14 +15,11 @@ const airtableHeaders = { Authorization: `Bearer ${airtableKey}` };
 /////////////////////// SCRIPT ///////////////////////
 
 async function addContactsToOpportunities() {
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 1; i++) {
     const opportunityRecords = await getOpportunitiesfromAirtable();
     for (const opportunityRecord of opportunityRecords) {
       await addContactToOpportunity(opportunityRecord);
-      // if (i > 5) {
-      //   break;
-      // }
-      // i++;
+      break;
     }
   }
 }
@@ -41,16 +38,19 @@ async function getOpportunitiesfromAirtable() {
 }
 
 async function addContactToOpportunity(opportunityRecord) {
-  const hubspotID = await getContactHubspotID(opportunityRecord);
+  const contactID = getContactActID(opportunityRecord);
+  const hubspotID = await getContactHubspotID(contactID);
   //   if (hubspotID == null) return null;
 
   updateOpportunity(opportunityRecord.id, hubspotID);
   return true;
 }
 
-async function getContactHubspotID(opportunityRecord) {
-  const contactID = opportunityRecord.fields.contactID;
+function getContactActID(opportunityRecord) {
+  return opportunityRecord.fields.contactID;
+}
 
+async function getContactHubspotID(contactID) {
   const formula = `{Act ID} = "${contactID}"`;
   const airtablegetRecordsUrl = `https://api.airtable.com/v0/${contactsBaseID}/${contactsTableName}?filterByFormula=${encodeURI(
     formula
@@ -63,10 +63,26 @@ async function getContactHubspotID(opportunityRecord) {
 
     const noContactExists = response.data.records[0] == null;
     if (noContactExists) {
+      console.log("no contact");
       return null;
     }
+    const contact = response.data.records[0];
+    let hubspotID = contact.fields["Hubspot ID"];
+    console.log(hubspotID);
+    const contactHasNoHubspotID = contact.fields["Hubspot ID"] != ""; //contactHasNoHubspotID
 
-    return response.data.records[0].fields["Hubspot ID"];
+    if (contactHasNoHubspotID) {
+      console.log(
+        "original contact ID",
+        contact.fields["Original Contact Act ID"]
+      );
+      hubspotID = await getContactHubspotID(
+        contact.fields["Original Contact Act ID"]
+      );
+      console.log(hubspotID);
+    }
+
+    return hubspotID;
   } catch (error) {
     console.log(error);
   }
