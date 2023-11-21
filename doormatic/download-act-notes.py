@@ -19,6 +19,12 @@ auth = utilities.retrieve_dict('.env2')
 main_directory = "doormatic/"
 data_directory = "data/"
 data_store_filename = "data_store.json"
+processed_contacts_store_filename = "processed_contacts.json"
+processed_objects_store_filename = "processed_<OBJECT_TYPE>.json"
+contact_note_records_store_filename = "contacts_note_records.json"
+object_note_records_store_filename = "<OBJECT_TYPE>_note_records.json"
+
+objects_csv_filename = "<OBJECT_TYPE>.csv"
 contacts_filename = "contacts.csv"
 notes_filename = "notes.csv"
 
@@ -182,16 +188,20 @@ def create_record_object(note):
     return record
 
 
-def main():
+def download_notes(object_type):
     # Initialise array of notes
     all_notes = []
     all_mapped_notes = []
     mapped_notes_for_csv = []
-    new_processed_contacts = []
-    # Initialise data store json file
-    data_store_filepath = f'{data_directory}{data_store_filename}'
-    data_store = utilities.retrieve_dict(data_store_filepath)
-    processed_contacts = data_store.get('processed_contact_ids')
+    new_processed_objects = []
+    # Initialise data store json files
+    # data_store_filepath = f'{data_directory}{data_store_filename}'
+    # data_store = utilities.retrieve_dict(data_store_filepath)
+    # processed_contacts = data_store.get('processed_contact_ids')
+    processed_contacts_store = utilities.retrieve_dict(f'{data_directory}{processed_contacts_store_filename}')
+    processed_contacts = processed_contacts_store.get('processed_contact_ids')
+    existing_notes_store = utilities.retrieve_dict(f'{data_directory}{contact_note_records_store_filename}')
+    # print(f'Existing notes:\n{existing_notes_store}')
     if not processed_contacts:
         processed_contacts = []
     # Get contacts from csv
@@ -210,7 +220,7 @@ def main():
                         # Append notes to list of all_notes
                         all_notes = all_notes + contact_notes
                         # Append contact_id to processed_contacts
-                        new_processed_contacts.append(contact_id)
+                        new_processed_objects.append(contact_id)
                     except TypeError:
                         print(headline(f'ERROR with ID : {contact_id}', '*', 100))
                     contact_counter += 1
@@ -227,26 +237,32 @@ def main():
     # Upload notes to Airtable
     add_notes_to_airtable(all_mapped_notes)
     # Save notes in csv
-    utilities.write_to_csv(f'{data_directory}{notes_filename}', mapped_notes_for_csv)
+    if len(mapped_notes_for_csv) > 0:
+        utilities.write_to_csv(f'{data_directory}{notes_filename}', mapped_notes_for_csv)
 
     # Save Notes and processed contact ids data into json file
-    existing_notes = data_store.get('note_records')
+    # existing_notes = data_store.get('note_records')
+    existing_notes = existing_notes_store.get('note_records')
     if not existing_notes:
         existing_notes = []
     if not processed_contacts:
         processed_contacts = []
-    data_store['note_records'] = existing_notes + all_mapped_notes
-    data_store['processed_contact_ids'] = processed_contacts + new_processed_contacts
+    # data_store['note_records'] = existing_notes + all_mapped_notes
+    # data_store['processed_contact_ids'] = processed_contacts + new_processed_contacts
+    existing_notes_store['note_records'] = existing_notes + all_mapped_notes
+    processed_contacts_store['processed_contact_ids'] = processed_contacts + new_processed_objects
     try:
-        print(headline(f"{len(data_store['processed_contact_ids'])} contacts processed", '=', 100))
+        # print(headline(f"{len(data_store['processed_contact_ids'])} contacts processed", '=', 100))
+        print(headline(f"{len(processed_contacts_store['processed_contact_ids'])} contacts processed", '=', 100))
     except:
         ''
-    utilities.store_dict(data_store, data_store_filepath)
+    utilities.store_dict(processed_contacts_store, f'{data_directory}{processed_contacts_store_filename}')
+    utilities.store_dict(existing_notes_store, f'{data_directory}{contact_note_records_store_filename}')
 
 
 start_time = time.time()
 print(headline(f'Process start', '=', 100))
-main()
+download_notes("contacts")
 end_time = time.time()
 time_delta = int((end_time - start_time) * 1000) / 1000
 print(headline(f'Process end ({time_delta} s)', '=', 100))
