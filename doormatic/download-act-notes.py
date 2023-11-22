@@ -17,7 +17,8 @@ auth = utilities.retrieve_dict('.env2')
 
 # ================================== SWITCHES ================================== #
 object_type = "contacts"
-max_number_of_objects = 10000
+max_number_of_objects = 2000
+number_of_objects_to_process = 20000
 
 # =================================== GLOBALS =================================== #
 main_directory = "doormatic/"
@@ -26,14 +27,15 @@ data_store_filename = "data_store.json"
 processed_contacts_store_filename = "processed_contacts.json"
 contact_note_records_store_filename = "contacts_note_records.json"
 processed_object_ids_filename = "processed_ids_<OBJECT_TYPE>.json"
-object_note_records_filename = "note_records_<OBJECT_TYPE>.json"
+object_note_records_filename = "note_records_<OBJECT_TYPE>_<NUMBER>.json"
 
 objects_csv_filename = "<OBJECT_TYPE>.csv"
 contacts_filename = "contacts.csv"
-notes_filename = "notes.csv"
+notes_filename = "notes_<OBJECT_TYPE>_<NUMBER>.csv"
 
 object_id_column = 1  # Zero indexed
 total_objects_processed = 0  # For console logging
+data_store = utilities.retrieve_dict(f'{data_directory}{data_store_filename}')
 
 # ================================= ACT DETAILS ================================= #
 
@@ -248,7 +250,8 @@ def download_notes():
     # Save notes in csv
     if len(mapped_notes_for_csv) > 0:
         utilities.write_to_csv(f'{data_directory}{notes_filename}'
-                               .replace('<OBJECT_TYPE>', object_type), mapped_notes_for_csv)
+                               .replace('<OBJECT_TYPE>', object_type)
+                               .replace('<NUMBER>', str(current_file_number)), mapped_notes_for_csv)
 
     # Save Notes and processed contact ids data into json file
     # existing_notes = data_store.get('note_records')
@@ -270,7 +273,8 @@ def download_notes():
     utilities.store_dict(processed_object_ids_store, f'{data_directory}{processed_object_ids_filename}'
                          .replace('<OBJECT_TYPE>', object_type))
     utilities.store_dict(existing_notes_store, f'{data_directory}{object_note_records_filename}'
-                         .replace('<OBJECT_TYPE>', object_type))
+                         .replace('<OBJECT_TYPE>', object_type)
+                         .replace('<NUMBER>', str(current_file_number)))
 
 
 def admin():
@@ -285,11 +289,38 @@ def admin():
                          .replace('<OBJECT_TYPE>', 'contacts'))
 
 
-start_time = time.time()
-print(headline(f'Process start', '=', 100))
-download_notes()
-# admin()
-end_time = time.time()
-time_delta = int((end_time - start_time) * 1000) / 1000
-print(headline(f'Process end ({time_delta} s)', '=', 100))
+def download_notes_batch():
+    start_time = time.time()
+    print(headline(f'Download start', '=', 100))
+    download_notes()
+    end_time = time.time()
+    time_delta = int((end_time - start_time) * 1000) / 1000
+    print(headline(f'Download end ({time_delta} s)', '=', 100))
 
+
+global_start_time = time.time()
+print(headline(f'Process start', '=', 100))
+object_data_store = data_store.get(object_type)
+if not object_data_store:
+    object_data_store = {
+        'output_file_number': 1
+    }
+current_file_number = object_data_store.get('current_file_number')
+# current_file_number = start_file_number
+number_of_batches = int(number_of_objects_to_process / max_number_of_objects)
+if number_of_objects_to_process / max_number_of_objects > int(number_of_objects_to_process / max_number_of_objects):
+    number_of_batches += 1
+for file_counter in range(0, number_of_batches):
+    current_file_number += 1
+    download_notes_batch()
+
+    object_data_store['current_file_number'] = current_file_number
+    data_store[object_type] = object_data_store
+
+utilities.store_dict(data_store, f'{data_directory}{data_store_filename}')
+
+
+# admin()
+global_end_time = time.time()
+global_time_delta = int((global_end_time - global_start_time) * 1000) / 1000
+print(headline(f'Process end ({global_time_delta} s)', '=', 100))
