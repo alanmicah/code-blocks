@@ -17,7 +17,7 @@ auth = utilities.retrieve_dict('.env2')
 
 # ================================== SWITCHES ================================== #
 object_type = "contacts"
-max_number_of_objects = 10
+max_number_of_objects = 10000
 
 # =================================== GLOBALS =================================== #
 main_directory = "doormatic/"
@@ -276,12 +276,10 @@ def download_notes():
 def admin():
     notes_store = utilities.retrieve_dict(f'{data_directory}{object_note_records_filename}'
                                           .replace('<OBJECT_TYPE>', 'contacts'))
-    old_key = 'note_records'
-    new_key = 'data'
-    data = notes_store.get(old_key)
-    notes_store[new_key] = data
+    data_key = 'data'
+    data = notes_store.get(data_key)
     print(notes_store.keys())
-    notes_store.pop(old_key)
+    notes_store.pop(data_key)
     print(notes_store.keys())
     utilities.store_dict(notes_store, f'{data_directory}{object_note_records_filename}'
                          .replace('<OBJECT_TYPE>', 'contacts'))
