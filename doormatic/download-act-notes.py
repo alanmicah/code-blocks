@@ -18,7 +18,7 @@ auth = utilities.retrieve_dict('.env2')
 # ================================== SWITCHES ================================== #
 object_type = "contacts"
 max_number_of_objects = 2000
-number_of_objects_to_process = 20000
+number_of_objects_to_process = 2000
 
 # =================================== GLOBALS =================================== #
 main_directory = "doormatic/"
@@ -267,7 +267,10 @@ def download_notes():
     try:
         # print(headline(f"{len(data_store['processed_contact_ids'])} contacts processed", '=', 100))
         print(headline(f"{len(processed_object_ids_store['data'])} {object_type} processed", '=', 100))
+        print(headline(f"Total {object_type} = {len(all_objects)}", '-', 100))
         print(headline(f"{len(errored_object_ids)} {object_type} with errors", '=', 100))
+        data_store[object_type]['total'] = len(all_objects)
+        data_store[object_type]['processed'] = len(processed_object_ids_store['data'])
     except:
         ''
     utilities.store_dict(processed_object_ids_store, f'{data_directory}{processed_object_ids_filename}'
@@ -287,6 +290,17 @@ def admin():
     print(notes_store.keys())
     utilities.store_dict(notes_store, f'{data_directory}{object_note_records_filename}'
                          .replace('<OBJECT_TYPE>', 'contacts'))
+
+
+def compare_object_lists():
+    array_of_objects = utilities.import_csv_file(f'{data_directory}{objects_csv_filename}'
+                                                 .replace('<OBJECT_TYPE>', object_type))
+    processed_ids_data_store = utilities.retrieve_dict(f'{data_directory}{processed_object_ids_filename}'
+                                                       .replace('<OBJECT_TYPE>', object_type))
+    list_of_processed_ids = processed_ids_data_store.get('data')
+    percent_processed = int(len(list_of_processed_ids) / len(array_of_objects * 1000)) / 10
+    print(f'Total Objects = {len(array_of_objects)}')
+    print(f'Processed Objects = {len(processed_ids_data_store)} ({percent_processed}%)')
 
 
 def download_notes_batch():
