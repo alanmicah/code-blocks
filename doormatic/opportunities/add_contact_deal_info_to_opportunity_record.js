@@ -39,9 +39,9 @@ async function getOpportunitiesfromAirtable() {
 
 async function addContactToOpportunity(opportunityRecord) {
   const contactID = getContactActID(opportunityRecord);
-  const hubspotID = await getContactHubspotID(contactID);
+  const actContact = await getActContact(contactID);
 
-  updateOpportunity(opportunityRecord.id, hubspotID);
+  updateDeal(opportunityRecord.fields.hubspotID, actContact);
   return true;
 }
 
@@ -49,7 +49,7 @@ function getContactActID(opportunityRecord) {
   return opportunityRecord.fields.contactID;
 }
 
-async function getContactHubspotID(contactID) {
+async function getActContact(contactID) {
   const formula = `{Act ID} = "${contactID}"`;
   const airtablegetRecordsUrl = `https://api.airtable.com/v0/${contactsBaseID}/${contactsTableName}?filterByFormula=${encodeURI(
     formula
@@ -60,44 +60,35 @@ async function getContactHubspotID(contactID) {
       headers: airtableHeaders,
     });
 
-    const noContactExists = response.data.records[0] == null;
-    if (noContactExists) {
-      console.log("no contact");
-      return null;
-    }
-
-    const contact = response.data.records[0];
-    let hubspotID = contact.fields["Hubspot ID"];
-    console.log("hubspotID", hubspotID);
-    const contactHasNoHubspotID = contact.fields["Hubspot ID"] == undefined; //contactHasNoHubspotID
-
-    if (contactHasNoHubspotID) {
-      console.log(
-        "original contact ID",
-        contact.fields["Original Contact Act ID"]
-      );
-      hubspotID = await getContactHubspotID(
-        contact.fields["Original Contact Act ID"]
-      );
-      console.log(hubspotID);
-    }
-
-    return hubspotID;
+    return response.data.records[0];
   } catch (error) {
     console.log(error);
   }
 }
 
-async function updateOpportunity(opportunityRecordID, hubspotID) {
-  const airtableRecordUrl = `https://api.airtable.com/v0/${baseId}/${tableIdOrName}/${opportunityRecordID}`;
+async function updateDeal(hubspotID, actContact, opportunityID) {
+  if (actContact == null) return;
+  hubspotID = hubspotID == null ? "No contact" : hubspotID;
 
-  hubspotID = hubspotID == null ? "No contact 1" : hubspotID;
+  try {
+    const apiResponse = await axios.patch(airtableRecordUrl, requestBody, {
+      headers: airtableHeaders,
+    });
 
-  const requestBody = {
-    fields: {
-      contactHubspotID: hubspotID,
-    },
-  };
+    console.log();
+    console.log(
+      apiResponse.data.fields["opportunity name"],
+      apiResponse.data.fields.contactHubspotID
+    );
+    console.log();
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+async function updateOpportunity(hubspotID, actContact, opportunityID) {
+  if (actContact == null) return;
+  hubspotID = hubspotID == null ? "No contact" : hubspotID;
 
   try {
     const apiResponse = await axios.patch(airtableRecordUrl, requestBody, {

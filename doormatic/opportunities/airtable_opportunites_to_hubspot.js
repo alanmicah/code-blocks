@@ -19,7 +19,7 @@ const airtableHeaders = { Authorization: `Bearer ${airtableKey}` };
 let airtablePageOffset = null;
 
 async function migrateAirtableOpportunitiesToHubspot() {
-  for (let i = 0; i < 1; i++) {
+  for (let i = 0; i < 55; i++) {
     const airtableRecords = await getOpportunitiesfromAirtable();
     await addOpportunitiesToHubspot(airtableRecords);
   }
@@ -37,13 +37,29 @@ async function getOpportunitiesfromAirtable() {
 }
 
 async function addOpportunitiesToHubspot(airtableRecords) {
+  let i = 0;
+
   for (const airtableRecord of airtableRecords) {
     const requestBody = createRequestBody(airtableRecord);
     // console.log(requestBody);
     const hubspotID = await addOpportunityToHubspot(requestBody);
+
+    const asssociationRequestBody = createAssociationRequestBody(
+      hubspotID,
+      airtableRecord.fields.contactHubspotID
+    );
+
+    // await sleep(2000);
+
+    console.log(asssociationRequestBody);
+    await associateContactToDeal(asssociationRequestBody);
+
     await updateAirtableRecord(hubspotID, airtableRecord.id);
 
-    break;
+    // i++;
+    // if (i > 5) {
+    // break;
+    // }
   }
 }
 
@@ -55,42 +71,51 @@ function createRequestBody(airtableRecord) {
   return requestBody;
 }
 
-function createProperties(contactFields) {
+function createProperties(opportunityFields) {
   const estimatedCloseDate = setDateToMidnight(
-    contactFields.estimatedCloseDate
+    opportunityFields.estimatedCloseDate
   );
-  const openDate = setDateToMidnight(contactFields.openDate);
-  const stageStartDate = setDateToMidnight(contactFields.stageStartDate);
-  const created = setDateToMidnight(contactFields.created);
-  const edited = setDateToMidnight(contactFields.edited);
-  const ownerID = getRecordManagerHubspotID(contactFields["manager"]);
+  const openDate = setDateToMidnight(opportunityFields.openDate);
+  const stageStartDate = setDateToMidnight(opportunityFields.stageStartDate);
+  const created = setDateToMidnight(opportunityFields.created);
+  const edited = setDateToMidnight(opportunityFields.edited);
+  const ownerID = getRecordManagerHubspotID(opportunityFields["manager"]);
 
-  const probability = contactFields.probability / 100;
+  const probability = opportunityFields.probability / 100;
+  const stageID = getStageID(opportunityFields.statusUpdated);
+
+  const orderNumber = opportunityFields.orderNumber;
+
+  const dealName = `${
+    orderNumber != null ? orderNumber : "Act Opportunity"
+  } | ${opportunityFields.contactNames}`;
 
   let properties = {
-    act_id: contactFields.actID,
-    dealname: "ORDER NUMBER | Client Name - POSTCODE",
-    act_record_manager: contactFields.manager,
-    act_days_open: contactFields.daysOpen,
-    act_days_in_stage: contactFields.daysInStage,
+    act_id: opportunityFields.actID,
+    dealname: dealName,
+    pipeline: "213932003",
+    act_record_manager: opportunityFields.manager,
+    act_days_open: opportunityFields.daysOpen,
+    act_days_in_stage: opportunityFields.daysInStage,
     act_estimated_closed_date: estimatedCloseDate,
     act_stage_start_date: stageStartDate,
-    act_gross_margin: contactFields.grossMargin,
+    act_gross_margin: opportunityFields.grossMargin,
     act_open_date: openDate,
     hs_deal_stage_probability: probability,
-    amount: contactFields.productTotal,
-    act_deal_stage_name: contactFields.stageName,
-    act_process_name: contactFields.processName,
+    amount: opportunityFields.productTotal,
+    act_deal_stage_name: opportunityFields.stageName,
+    act_process_name: opportunityFields.processName,
     act_create_date: created,
     act_last_edited: edited,
     hubspot_owner_id: ownerID,
+    dealstage: stageID,
   };
 
-  console.log(properties);
   return properties;
 }
 
 function setDateToMidnight(date) {
+  if (date == null) return null;
   const createdDate = new Date(Date.parse(date.split("T")[0]));
 
   return createdDate;
@@ -155,6 +180,42 @@ function getRecordManagerHubspotID(managerName) {
   return contactOwnerID;
 }
 
+function getStageID(stageName) {
+  console.log();
+  const stageNameIDs = {
+    "New Lead": "372336847",
+    "Initial meeting": "372483321",
+    "Ballpark quote": "372483514",
+    "Survey booked": "372483515",
+    "Survey completed": "372483516",
+    "Quote sent": "372371939",
+    "Closed won": "372483517",
+    "Closed lost": "372483518",
+  };
+
+  return stageNameIDs[stageName];
+}
+
+// function addContactToRequestBody(requestBody, contactID) {
+//   if (contactID == null) return requestBody;
+
+//   requestBody["association"] = [
+//     {
+//       to: {
+//         id: "416461",
+//       },
+//       types: [
+//         {
+//           associationCategory: "HUBSPOT_DEFINED",
+//           associationTypeId: 3,
+//         },
+//       ],
+//     },
+//   ];
+//   console.log(requestBody.association);
+//   return requestBody;
+// }
+
 async function addOpportunityToHubspot(requestBody) {
   try {
     const apiResponse = await axios.post(
@@ -168,6 +229,33 @@ async function addOpportunityToHubspot(requestBody) {
     e.message === "Request failed with status code 400"
       ? console.error(JSON.stringify(e.response.data, null, 2))
       : console.error("error");
+  }
+}
+
+function createAssociationRequestBody(hubspotID, contactID) {
+  const requestBody = {
+    fromObjectId: hubspotID,
+    toObjectId: contactID,
+    category: "HUBSPOT_DEFINED",
+    definitionId: 3,
+  };
+
+  return requestBody;
+}
+
+async function associateContactToDeal(requestBody) {
+  try {
+    const apiResponse = await axios.put(
+      "https://api.hubapi.com/crm-associations/v1/associations",
+      requestBody,
+      { headers: hubspotHeaders }
+    );
+    return apiResponse.data.id;
+  } catch (e) {
+    console.log(e.message);
+    e.message === "Request failed with status code 400"
+      ? console.error(JSON.stringify(e.response.data, null, 2))
+      : console.error(e);
   }
 }
 
@@ -198,6 +286,10 @@ async function updateAirtableRecord(hubspotID, airtableID) {
     console.log(error.response.data);
     console.log("Airtable Error");
   }
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 migrateAirtableOpportunitiesToHubspot();

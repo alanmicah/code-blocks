@@ -38,8 +38,8 @@ airtable_headers = {"Authorization": f"Bearer {airtable_key}"}
 
 def upload_months_act_data_to_airtable(start_date, end_date):
     contacts = get_contacts_from_act(start_date, end_date)
-    print(len(contacts))
-    add_contacts_to_airtable(contacts)
+    # print(len(contacts))
+    # add_contacts_to_airtable(contacts)
 
 
 def get_contacts_from_act(start_date, end_date):
@@ -62,6 +62,8 @@ def get_up_to_date_authorisation():
     response = requests.get(act_get_auth_token_url, headers=auth_headers)
 
     temporary_bearer_token = response.text
+    
+    print(temporary_bearer_token)
     headers = {
         "Act-Database-Name": "Doormatic",
         "Authorization": f"Bearer {temporary_bearer_token}",
@@ -230,7 +232,7 @@ for i in range(0, len(dates) - 1):
     end_date = dates[i]
 
     upload_months_act_data_to_airtable(start_date, end_date)
-
+    break
 
 print()
 print()

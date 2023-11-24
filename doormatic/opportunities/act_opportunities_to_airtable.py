@@ -88,8 +88,7 @@ def add_opportunities_to_airtable(opportunities):
             for record in records:
                 print(
                     record["fields"]["contactNames"],
-                
-                    record["fields"]["actID"],
+                    record["fields"]["actID"]
                 )
 
             records = []
@@ -124,7 +123,8 @@ def create_record_object(opportunity):
         'totalPerContact': opportunity['totalPerContact'],
         'weightedTotal': opportunity['weightedTotal'],
         'created': opportunity['created'],
-        'edited': opportunity['edited']
+        'edited': opportunity['edited'],
+        'status': opportunity['status']
             }
         }
     return record
@@ -140,7 +140,7 @@ def post_data_to_airtable(data):
         airtable_create_records_url,
         json=data,
         headers=airtable_headers,
-    )
+    ) 
 
     print()
     print()
@@ -150,8 +150,7 @@ def post_data_to_airtable(data):
 
 
 dates = [
-    {"year": 2023, "month": 9},
-    {"year": 2023, "month": 8},
+        {"year": 2023, "month": 8},
     {"year": 2023, "month": 7},
     {"year": 2023, "month": 6},
     {"year": 2023, "month": 5},
@@ -217,7 +216,7 @@ for i in range(0, len(dates) - 1):
     end_date = dates[i]
 
     upload_months_act_data_to_airtable(start_date, end_date)
-
+    # break
 
 
 print()
