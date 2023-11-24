@@ -11,7 +11,7 @@ const hubspotHeaders = { Authorization: `Bearer ${hubspotAccessToken}` };
 
 const airtableKey = process.env.DOORMATIC_AIRTABLE_KEY;
 const baseId = "appRTap2n6PrB3JXt";
-const tableIdOrName = "Contacts";
+const contactsTableName = "Contacts";
 const airtableHeaders = { Authorization: `Bearer ${airtableKey}` };
 
 /////////////////////// SCRIPT ///////////////////////
@@ -19,14 +19,14 @@ const airtableHeaders = { Authorization: `Bearer ${airtableKey}` };
 let airtablePageOffset = null;
 
 async function migrateAirtableContactsToHubspot() {
-  for (let i = 0; i < 1000; i++) {
+  for (let i = 0; i < 10; i++) {
     const airtableRecords = await getContactsfromAirtable();
     await addContactsToHubspot(airtableRecords);
   }
 }
 
 async function getContactsfromAirtable() {
-  const airtablegetRecordsUrl = `https://api.airtable.com/v0/${baseId}/${tableIdOrName}?view=Contacts%20To%20Upload`;
+  const airtablegetRecordsUrl = `https://api.airtable.com/v0/${baseId}/${contactsTableName}?view=Contacts%20To%20Upload`;
 
   response = await axios.get(airtablegetRecordsUrl, {
     headers: airtableHeaders,
@@ -42,9 +42,10 @@ async function addContactsToHubspot(airtableRecords) {
     // console.log(requestBody);
 
     // await hubspotUsers();
-    const hubspotID = await addContactToHubspot(requestBody);
+    const response = await addContactToHubspot(requestBody);
 
-    await updateAirtableRecord(hubspotID, airtableRecord.id);
+    await updateAirtableRecord(response, airtableRecord.id);
+    // break;
   }
 }
 
@@ -158,35 +159,63 @@ async function addContactToHubspot(requestBody) {
       requestBody,
       { headers: hubspotHeaders }
     );
-    return apiResponse.data.id;
+    return apiResponse;
   } catch (e) {
     e.message === "Request failed with status code 409"
       ? console.error(JSON.stringify(e.response.data, null, 2))
-      : console.error("error");
+      : console.error("Hubspot error"); // e.response.data
+
+    return e.response;
   }
 }
 
-// async function hubspotUsers() {
-//   try {
-//     const apiResponse = await axios.get(
-//       "https://api.hubapi.com/crm/v3/owners/?limit=100&archived=false",
-//       { headers: hubspotHeaders }
-//     );
+async function updateAirtableRecord(response, airtableID) {
+  // console.log(response);
+  if (response.status === 409 && response.data.category === "CONFLICT") {
+    const message = response.data.message;
+    const words = message.split(" ");
+    const hubspotID = words[words.length - 1];
 
-//     console.log(apiResponse.data);
-//     return apiResponse.data;
+    const originalContact = await getOriginalHubspotContactInAirtable(
+      hubspotID
+    );
 
-//   } catch (e) {
-//     e.message === "HTTP request failed"
-//       ? console.error(JSON.stringify(e.response.data, null, 2))
-//       : console.error(e.response.data);
+    if (originalContact == null) {
+      console.log("Contact does not exist in Airtable");
+      addHubspotIDToContact(hubspotID, airtableID);
+    } else {
+      console.log("DOES EXIST");
+      await addOriginalContactActIDtoRecord(originalContact, airtableID);
+    }
 
-//     console.log("Hubspot error");
-//   }
-// }
+    return;
+  }
+  if (response.status === 400) {
+    addErrorCodeToContact(response.status, airtableID);
+    return;
+  }
+  if (response.data != null) {
+    const hubspotID = response.data.id;
+    addHubspotIDToContact(hubspotID, airtableID);
+  }
+}
 
-async function updateAirtableRecord(hubspotID, airtableID) {
-  const airtableputRecordUrl = `https://api.airtable.com/v0/${baseId}/${tableIdOrName}/${airtableID}`;
+async function getOriginalHubspotContactInAirtable(hubspotID) {
+  // const hubspotID = "234801";
+  const formula = `{Hubspot ID} = "${hubspotID}"`;
+  airtablegetRecordsUrl = `https://api.airtable.com/v0/${baseId}/${contactsTableName}?view=Admin%20View&filterByFormula=${encodeURI(
+    formula
+  )}`;
+
+  response = await axios.get(airtablegetRecordsUrl, {
+    headers: airtableHeaders,
+  });
+
+  return response.data.records[0];
+}
+
+async function addHubspotIDToContact(hubspotID, airtableID) {
+  const airtableputRecordUrl = `https://api.airtable.com/v0/${baseId}/${contactsTableName}/${airtableID}`;
   try {
     response = await axios.patch(
       airtableputRecordUrl,
@@ -205,12 +234,65 @@ async function updateAirtableRecord(hubspotID, airtableID) {
     console.log(
       response.data.fields["First Name"],
       response.data.fields["Surname"],
-      hubspotID == null ? "NA" : hubspotID
+      hubspotID == null ? "Duplicate" : hubspotID
     );
 
     return response.data;
   } catch (error) {
     console.log("Airtable Error");
+  }
+}
+
+async function addErrorCodeToContact(errorCode, airtableID) {
+  console.log(errorCode);
+  const airtableputRecordUrl = `https://api.airtable.com/v0/${baseId}/${contactsTableName}/${airtableID}`;
+  try {
+    response = await axios.patch(
+      airtableputRecordUrl,
+      {
+        fields: {
+          "Error Code": errorCode.toString(),
+        },
+      },
+
+      {
+        headers: airtableHeaders,
+      }
+    );
+
+    // console.log(response.data.records);
+    console.log(
+      response.data.fields["First Name"],
+      response.data.fields["Surname"],
+      response.data.fields["Error Code"]
+    );
+
+    return response.data;
+  } catch (error) {
+    console.log("Airtable Error");
+    console.log(error.response.data);
+  }
+}
+
+async function addOriginalContactActIDtoRecord(airtableRecord, airtableID) {
+  const airtableputRecordUrl = `https://api.airtable.com/v0/${baseId}/${contactsTableName}/${airtableID}`;
+  try {
+    response = await axios.patch(
+      airtableputRecordUrl,
+      {
+        fields: {
+          "Original Contact Act ID": airtableRecord.fields["Act ID"],
+        },
+      },
+
+      {
+        headers: airtableHeaders,
+      }
+    );
+
+    console.log(response.status);
+  } catch (error) {
+    console.log(error);
   }
 }
 
