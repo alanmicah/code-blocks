@@ -73,7 +73,7 @@ def retrieve_dict(filepath):
 
         # print(f'str 2 = {output_str}')
         dict_payload = json.loads(output_str)
-    # print(f'dict loaded')
+        # print(f'dict loaded')
     except:
         dict_payload = {}
     return dict_payload
