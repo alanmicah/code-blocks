@@ -4,3 +4,4 @@ assets/*
 node_modules
 doormatic/data/notes.csv
 doormatic/data/*
+!doormatic/data/data_store.json
