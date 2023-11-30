@@ -8,7 +8,7 @@ import time
 
 import act_crm
 import airtable
-import utilities
+import utils.utilities as utilities
 
 print()
 print()

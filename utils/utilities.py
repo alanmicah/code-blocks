@@ -81,3 +81,4 @@ def retrieve_dict(filepath):
 
 def headline(text, symbol, width):
     return f" {text} ".center(width, symbol)
+
