@@ -1,3 +1,1 @@
-doormatic/data/notes.csv
-doormatic/data/*
-!doormatic/data/data-store.json
+data/*
