@@ -1,3 +1,7 @@
+import sys
+import html2text
+# from admin import reformat_html_to_plain
+
 import requests
 import os
 from dotenv import load_dotenv
@@ -12,7 +16,7 @@ print()
 print()
 print()
 load_dotenv()
-# pd.set_option('display.max_columns', None)
+pd.set_option('display.max_columns', None)
 
 
 ###################### ACT DETAILS ######################
@@ -49,51 +53,80 @@ def migrate_notes_to_hubspot(csv_files):
 
 def migrate_csv_notes_to_hubspot(csv_file):
 
-    contacts_df = read_and_clean_csv(csv_file)
-    for _, contact in contacts_df.loc[pd.isna(contacts_df["hubspot ID"])].iterrows():
+    notes_df = read_and_clean_csv(csv_file)
+    print(notes_df.loc[: , "hubspot ID"])
+    print(notes_df.columns)
+    # notes_df = reformat_notes_to_plain_text(notes_df)
+    # notes_df = notes_df.drop("Note Text", axis=1)
+
+    # for _, note in notes_df.loc[pd.isna(notes_df["hubspot ID"])].iterrows():
         
-        print()
-        print()
-        print()
+    #     migrate_note_to_hubspot(note, notes_df)
 
-        husbpot_id_exists = not pd.isna(contact["hubspot ID"])
-        if husbpot_id_exists:
-            print(contact["hubspot ID"], 'exists')
-            continue
-
-        hubspot_ID = get_contact_hubspotID(contact)     
-        
-
-        if hubspot_ID == None:
-            print('skip')
-            continue
-     
-        contacts_df.loc[contacts_df['Act Contact ID'] == contact['Act Contact ID'], ['hubspot ID']] = hubspot_ID
-       
-        print(hubspot_ID)
-
-        # print(contact)
-        # print(contacts_df)
-        # break
-
-    # contacts_df = add_hubspot_id_column(contacts_df)
-    save_csv(csv_file, contacts_df)
+    # save_csv(csv_file, notes_df)
 
 
 def read_and_clean_csv(csv_file):
      
     filepath = f"doormatic/data/{csv_file}"
 
-    contacts_df = pd.read_csv(filepath, low_memory=False)
+    notes_df = pd.read_csv(filepath, low_memory=False)
+    # add_column_to_df(notes_df, "Plain Text Note")
     print("Read: ", filepath)
 
-    print(contacts_df)
-    return contacts_df
+    notes_df['hubspot ID'] = notes_df['hubspot ID'].round().astype(int, errors='ignore')
+    print(notes_df['hubspot ID'].dtype)
+
+    return notes_df
 
 
-def get_contact_hubspotID(contact):
+def migrate_note_to_hubspot(note, notes_df):
 
-    params = get_airtable_params(contact)
+    print()
+    print()
+    print()
+
+    husbpot_id_exists = not pd.isna(note["hubspot ID"])
+    if husbpot_id_exists:
+        print(note["hubspot ID"], 'exists')
+        return
+
+    hubspot_ID = get_contact_hubspotID(note)     
+
+    if hubspot_ID == None:
+        print('skip')
+        return
+    
+    notes_df.loc[notes_df['Act Contact ID'] == note['Act Contact ID'], ['hubspot ID']] = hubspot_ID
+    
+    print(hubspot_ID)   
+
+
+def reformat_notes_to_plain_text(notes_df):
+
+    for i, note in notes_df.iterrows():
+        # print(reformat_html_to_plain(note['Note Text']))
+        # print(note['Note Text'])
+        notes_df.loc[i, "Plain Text Note"] = reformat_html_to_plain(note['Note Text'])
+
+    return notes_df
+
+def reformat_html_to_plain(html_text):
+    # Handle some special characters
+    # html_text = html_text.replace( / (< ([^ >]+) >) / gi, "");
+    updated_text = html_text.replace('&pound;', '{GBP}')
+    updated_text = updated_text.replace('&amp;', '{AND}')
+    plain_text = html2text.html2text(updated_text)
+    # Reinsert specials
+    plain_text = plain_text.replace('{GBP}', '£')
+    plain_text = plain_text.replace('{AND}', '&')
+    # print(f'PLAIN:\n"{plain_text}\n\n"from HTML:\n"{html_text}"')
+    return plain_text
+
+
+def get_contact_hubspotID(note):
+
+    params = get_airtable_params(note)
     airtable_record_url = f"https://api.airtable.com/v0/{baseId}/{tableIdOrName}"
 
     try: 
@@ -115,17 +148,17 @@ def get_contact_hubspotID(contact):
         return 
 
 
-def get_airtable_params(contact):
+def get_airtable_params(note):
     
-    act_contact_id = contact["Act Contact ID"]
+    act_contact_id = note["Act Contact ID"]
     formula = f"{{Act ID}} = \"{act_contact_id}\""
     params = {"filterByFormula": formula, "fields[]": "Hubspot ID"}
     return params
 
 
-def add_hubspot_id_column(dataframe):
+def add_column_to_df(dataframe, column_name):
 
-    dataframe['hubspot ID'] = np.NAN
+    dataframe[column_name] = np.NAN
     return dataframe
 
 
@@ -140,3 +173,19 @@ csv_files= ['notes_contacts_1s.csv', 'notes_contacts_2.csv', 'notes_contacts_3.c
 csv_files= ['notes_contacts_3.csv']
 
 migrate_notes_to_hubspot(csv_files)
+
+
+test_note_string = '''const originalString = `
+<span style="font-family:Arial; font-size: 13px;">1 x Novoferm Steel Made to Measure Georgian up &amp; over Retractable Garage Door finished in White  1 2638.00 25% Sales 20% (VAT on Income) 1978.50<br />
+1 1 x Steel Frame finished in White 1 270.00 25% Sales 20% (VAT on Income) 202.50<br />
+4 UPVC finishing trim in white 1 75.00 Sales - UPVC 20% (VAT on Income) 75.00<br />
+6 Removal &amp; Disposal of existing garage door 1 30.00 Sales - Disposal 20% (VAT on Income) 30.00<br />
+5 Installation 1 330.00 Sales 20% (VAT on Income) £330.00 & <br />
+<br />
+Total VAT 20.00%523.20<br />
+TotalGBP &pound;3,139.20<br />
+<br />
+Optional Extras for Novoferm 1 x Novomatic 563 motor (c/w 2 remotes &amp; 1 internal wall unit): &pound;429+VAT 1 x Rubber Hump (fitted to the ground where the door will sit, helps prevent water from entering the garage): &pound;149+VAT 1 x Brush strip (prevent and debris from entering under the door): &pound;125+VAT</span>
+`;'''
+reformat_html_to_plain(test_note_string)
+ 
