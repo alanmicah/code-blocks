@@ -1,0 +1,21 @@
+# Environments
+/env
+.env
+.venv
+env/
+venv/
+ENV/
+
+*data/
+*.coda.json
+*.coda-credentials.json
+# *.json
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# misc
+!package.json
+!package-lock.json
